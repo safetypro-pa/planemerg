@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimizador de Prompt para Planes de Emergencia · v1.0</title>
+<style>
+  :root{
+    --bg:#080c17;
+    --bg2:#0c1220;
+    --panel:#111a2c;
+    --panel2:#16223a;
+    --line:#243350;
+    --txt:#e8eefb;
+    --muted:#8ba0c4;
+    --accent:#22d3ee;
+    --accent-d:#0e7490;
+    --amber:#f59e0b;
+    --green:#34d399;
+    --red:#f87171;
+    --purple:#a78bfa;
+    --radius:14px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    background:
+      radial-gradient(1100px 600px at 12% -10%, #10344a 0%, transparent 55%),
+      radial-gradient(900px 500px at 95% 0%, #2a1a3f 0%, transparent 50%),
+      var(--bg);
+    color:var(--txt);
+    min-height:100vh;
+    padding:18px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:20px;
+    flex-wrap:wrap;
+    background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.01));
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px 22px;
+    margin-bottom:16px;
+    backdrop-filter: blur(8px);
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{
+    width:46px;height:46px;border-radius:12px;
+    display:grid;place-items:center;font-size:23px;
+    background:linear-gradient(145deg, var(--accent), #6366f1);
+    box-shadow:0 6px 22px rgba(34,211,238,.32);
+  }
+  .brand h1{font-size:18px;font-weight:700;letter-spacing:-.3px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .brand p{font-size:12px;color:var(--muted);margin-top:3px}
+  .badge{
+    display:inline-block;font-size:9.5px;padding:2px 8px;border-radius:999px;
+    background:rgba(167,139,250,.16);color:var(--purple);font-weight:700;
+    letter-spacing:.4px;text-transform:uppercase;vertical-align:middle;
+  }
+  .stats{display:flex;gap:10px}
+  .stat{
+    background:var(--panel2);border:1px solid var(--line);
+    border-radius:10px;padding:8px 14px;text-align:center;min-width:82px;
+  }
+  .stat span{display:block;font-size:16px;font-weight:700;color:var(--accent);font-family:var(--mono)}
+  .stat small{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+
+  .layout{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,1fr);gap:16px;align-items:start}
+  @media(max-width:1120px){ .layout{grid-template-columns:1fr} }
+
+  .panel{
+    background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.008));
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+  }
+  .panel-head{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--line);
+  }
+  .panel-head h2{font-size:13px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);font-weight:700}
+
+  .group{margin-bottom:18px}
+  .group:last-child{margin-bottom:0}
+  .glabel{
+    font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+    color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:7px;
+  }
+  .glabel::before{content:"";width:3px;height:12px;border-radius:2px;background:var(--accent)}
+
+  .engines{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  @media(max-width:520px){.engines{grid-template-columns:repeat(2,1fr)}}
+  .engine{
+    background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:8px;padding:6px 5px;cursor:pointer;text-align:center;
+    transition:.16s;font-family:inherit;
+  }
+  .engine:hover{border-color:var(--accent-d);transform:translateY(-1px)}
+  .engine.active{
+    border-color:var(--accent);
+    background:linear-gradient(180deg, rgba(34,211,238,.16), rgba(34,211,238,.05));
+    box-shadow:0 0 0 1px rgba(34,211,238,.35), 0 6px 18px rgba(34,211,238,.15);
+  }
+  .engine b{display:block;font-size:10.5px;font-weight:700;line-height:1.2}
+  .engine small{display:block;font-size:8.5px;color:var(--muted);margin-top:1px;line-height:1.2}
+
+  .facilities{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  @media(max-width:520px){.facilities{grid-template-columns:repeat(2,1fr)}}
+  .fac{
+    background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+    padding:8px 5px;cursor:pointer;text-align:center;transition:.16s;color:var(--txt);
+    font-family:inherit;
+  }
+  .fac:hover{border-color:var(--amber);transform:translateY(-1px)}
+  .fac.active{
+    border-color:var(--amber);
+    background:linear-gradient(180deg, rgba(245,158,11,.17), rgba(245,158,11,.04));
+    box-shadow:0 0 0 1px rgba(245,158,11,.35), 0 6px 18px rgba(245,158,11,.14);
+  }
+  .fac .ico{font-size:16px;display:block;line-height:1}
+  .fac b{display:block;font-size:10px;margin-top:4px;font-weight:700;line-height:1.15}
+  .fac small{display:block;font-size:8px;color:var(--muted);margin-top:1px;line-height:1.15}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  @media(max-width:520px){.row2,.row3{grid-template-columns:1fr}}
+  select, input[type=number]{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:8px;padding:7px 9px;font-size:11.5px;font-family:inherit;
+    outline:none;transition:.15s;appearance:none;
+    background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+    background-size:5px 5px,5px 5px;background-repeat:no-repeat;
+  }
+  input[type=number]{background-image:none;text-align:center}
+  select:focus,input[type=number]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,211,238,.13)}
+  select option{background:var(--panel2)}
+
+  .slider{display:flex;flex-direction:column;gap:5px}
+  .slider .top{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+  .slider .top b{color:var(--accent);font-family:var(--mono);font-size:11.5px}
+  input[type=range]{
+    -webkit-appearance:none;width:100%;height:4px;border-radius:4px;
+    background:linear-gradient(90deg,var(--accent) var(--p,50%), #243350 var(--p,50%));
+    outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+    background:#fff;border:3px solid var(--accent);cursor:pointer;
+    box-shadow:0 2px 8px rgba(0,0,0,.5);transition:.15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.18)}
+  input[type=range]::-moz-range-thumb{
+    width:11px;height:11px;border-radius:50%;background:#fff;border:3px solid var(--accent);
+  }
+
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{
+    background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+    border-radius:999px;padding:4px 10px;font-size:10.5px;cursor:pointer;
+    transition:.15s;font-family:inherit;font-weight:500;white-space:nowrap;
+  }
+  .chip:hover{border-color:#3b5478;color:var(--txt)}
+  .chip.on{
+    background:linear-gradient(180deg, rgba(34,211,238,.2), rgba(34,211,238,.07));
+    border-color:var(--accent);color:#b8f4ff;font-weight:600;
+    box-shadow:0 0 0 1px rgba(34,211,238,.28);
+  }
+  .chip.on.amber{
+    background:linear-gradient(180deg, rgba(245,158,11,.2), rgba(245,158,11,.06));
+    border-color:var(--amber);color:#ffe1a3;box-shadow:0 0 0 1px rgba(245,158,11,.28);
+  }
+  .chip.on.green{
+    background:linear-gradient(180deg, rgba(52,211,153,.2), rgba(52,211,153,.06));
+    border-color:var(--green);color:#b5f5dd;box-shadow:0 0 0 1px rgba(52,211,153,.28);
+  }
+
+  .tabs{display:flex;gap:4px;background:var(--bg2);padding:3px;border-radius:9px;border:1px solid var(--line)}
+  .tab{
+    flex:1;background:transparent;border:none;color:var(--muted);font-size:10.5px;
+    padding:5px 6px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;
+    transition:.15s;white-space:nowrap;
+  }
+  .tab:hover{color:var(--txt)}
+  .tab.active{background:var(--panel2);color:var(--accent);box-shadow:0 1px 6px rgba(0,0,0,.35)}
+
+  .preview-panel{position:sticky;top:18px}
+  @media(max-width:1120px){.preview-panel{position:static}}
+  .out{
+    background:#070b14;border:1px solid var(--line);border-radius:11px;
+    padding:16px;max-height:620px;overflow:auto;
+    font-family:var(--mono);font-size:11.6px;line-height:1.62;
+    white-space:pre-wrap;word-break:break-word;color:#c7d6ee;
+  }
+  .out::-webkit-scrollbar{width:9px}
+  .out::-webkit-scrollbar-track{background:transparent}
+  .out::-webkit-scrollbar-thumb{background:#25334c;border-radius:6px}
+  .out::-webkit-scrollbar-thumb:hover{background:#35496b}
+
+  .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px}
+  .btn{
+    display:inline-flex;align-items:center;gap:5px;
+    border-radius:8px;padding:6px 11px;font-size:11px;font-weight:600;
+    cursor:pointer;font-family:inherit;transition:.15s;border:1px solid var(--line);
+    background:var(--panel2);color:var(--txt);
+  }
+  .btn:hover{transform:translateY(-1px);border-color:#3b5478}
+  .btn.primary{
+    background:linear-gradient(145deg,var(--accent),#0ea5e9);color:#04121c;
+    border-color:transparent;box-shadow:0 6px 18px rgba(34,211,238,.28);
+  }
+  .btn.primary:hover{box-shadow:0 8px 24px rgba(34,211,238,.42)}
+  .btn.ghost{background:transparent}
+
+  .guide{font-size:12px;line-height:1.7;color:#c2d1e8}
+  .guide h3{font-size:12.5px;color:var(--accent);margin:14px 0 6px;letter-spacing:.4px}
+  .guide h3:first-child{margin-top:0}
+  .guide code{background:#070b14;padding:2px 6px;border-radius:5px;font-family:var(--mono);font-size:10.5px;color:#ffd580;border:1px solid var(--line)}
+  .guide ul{margin-left:18px}
+  .guide li{margin-bottom:4px}
+  .guide .tip{
+    background:rgba(34,211,238,.08);border-left:3px solid var(--accent);
+    padding:9px 12px;border-radius:0 8px 8px 0;margin:9px 0;
+  }
+  .guide .norm-block{
+    background:#0a101c;border:1px solid var(--line);border-radius:8px;
+    padding:9px 12px;margin:7px 0;font-size:11.4px;
+  }
+  .guide .norm-block strong{color:var(--amber)}
+
+  .toast{
+    position:fixed;bottom:26px;left:50%;transform:translate(-50%,90px);
+    background:var(--green);color:#04231a;padding:11px 22px;border-radius:10px;
+    font-size:13px;font-weight:700;box-shadow:0 10px 32px rgba(52,211,153,.4);
+    transition:transform .3s cubic-bezier(.2,.9,.3,1.3);z-index:999;pointer-events:none;
+  }
+  .toast.show{transform:translate(-50%,0)}
+
+  .hidden{display:none !important}
+
+  .loop-group-head{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:8px;
+  }
+  .loop-group-head .glabel{margin:0}
+  .loop-checks{
+    display:grid;grid-template-columns:repeat(2,1fr);gap:5px;
+    margin-bottom:8px;
+  }
+  @media(max-width:520px){.loop-checks{grid-template-columns:1fr}}
+  .loop-check{
+    display:flex;align-items:center;gap:6px;
+    background:var(--panel2);border:1px solid var(--line);
+    border-radius:7px;padding:5px 8px;
+    font-size:10px;cursor:pointer;font-family:inherit;
+    color:var(--muted);transition:.15s;text-align:left;
+  }
+  .loop-check:hover{border-color:var(--accent-d);color:var(--txt)}
+  .loop-check.on{
+    border-color:var(--accent);
+    background:linear-gradient(180deg, rgba(34,211,238,.15), rgba(34,211,238,.04));
+    color:#b8f4ff;
+  }
+  .loop-check .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--line);border:1px solid #3b5478;
+    transition:.15s;flex-shrink:0;
+  }
+  .loop-check.on .dot{
+    background:var(--accent);border-color:var(--accent);
+    box-shadow:0 0 6px rgba(34,211,238,.6);
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">🚨</div>
+    <div>
+      <h1>Optimizador de Prompt para Planes de Emergencia <span class="badge">v1.0</span></h1>
+      <p>Normativa panameña (SINAPROC, MEDUCA, MITRADEL, CSS, Bomberos, Ley 284 PH) + estándares internacionales (NFPA, ISO, FEMA, Sendai)</p>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><span id="statChars">0</span><small>caracteres</small></div>
+    <div class="stat"><span id="statTokens">0</span><small>tokens ≈</small></div>
+    <div class="stat"><span id="statSections">0</span><small>bloques</small></div>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ================= CONFIG ================= -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>⚙️ Configuración del Prompt</h2>
+      <button class="btn ghost" id="btnReset" style="padding:4px 10px;font-size:10.5px">↺ Reset</button>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Motor de IA destino</div>
+      <div class="engines" id="engineGrid"></div>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Tipo de instalación / sector <span style="color:var(--amber);font-size:9px">● obligatorio</span></div>
+      <div class="facilities" id="facilityGrid"></div>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Formato de salida</div>
+      <div class="chips" id="formatChips"></div>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Parámetros generales</div>
+      <div class="row2" style="margin-bottom:8px">
+        <select id="selCountry" disabled>
+          <option selected>Panamá</option>
+        </select>
+        <select id="selLang">
+          <option value="">— Idioma (def. español) —</option>
+          <option value="español">Español</option>
+          <option value="inglés">Inglés</option>
+          <option value="bilingüe español-inglés">Bilingüe ES-EN</option>
+        </select>
+      </div>
+      <div class="row2">
+        <select id="selDetail">
+          <option value="">— Detalle (def. estándar) —</option>
+          <option value="ejecutivo">Detalle ejecutivo (~1.200 palabras)</option>
+          <option value="estándar">Detalle estándar (~3.500 palabras)</option>
+          <option value="alto">Detalle alto (~7.000 palabras)</option>
+          <option value="exhaustivo">Detalle exhaustivo (~12.000 palabras)</option>
+        </select>
+        <select id="selTone">
+          <option value="">— Tono (def. técnico-normativo) —</option>
+          <option value="técnico-normativo">Tono técnico-normativo</option>
+          <option value="ejecutivo">Tono ejecutivo / gerencial</option>
+          <option value="operativo">Tono operativo / brigadas</option>
+          <option value="didáctico">Tono didáctico / capacitación</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Datos operativos</div>
+      <div class="row3" style="margin-bottom:12px">
+        <div class="slider">
+          <div class="top"><span>Ocupantes</span><b id="vOcc">1</b></div>
+          <input type="range" id="rOcc" min="1" max="20000" step="1" value="1">
+        </div>
+        <div class="slider">
+          <div class="top"><span>Superficie m²</span><b id="vArea">50</b></div>
+          <input type="range" id="rArea" min="50" max="200000" step="50" value="50">
+        </div>
+        <div class="slider">
+          <div class="top"><span>Turnos</span><b id="vShift">1</b></div>
+          <input type="range" id="rShift" min="1" max="4" step="1" value="1">
+        </div>
+      </div>
+      <div class="chips">
+        <button class="chip green" data-flag="vulnerable">♿ Personas con discapacidad</button>
+        <button class="chip green" data-flag="menores">🧒 Menores de edad</button>
+        <button class="chip green" data-flag="lactantes">🍼 Lactantes / bebés</button>
+        <button class="chip green" data-flag="visitantes">👥 Público / visitantes externos</button>
+        <button class="chip green" data-flag="quimicos">🧪 Sustancias peligrosas</button>
+        <button class="chip green" data-flag="nocturno">🌙 Operación nocturna</button>
+        <button class="chip green" data-flag="terceros">🤝 Personal tercerizado</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Riesgos a cubrir</div>
+      <div class="chips" id="riskChips"></div>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Fases del ciclo de gestión</div>
+      <div class="chips" id="phaseChips"></div>
+    </div>
+
+    <div class="group">
+      <div class="glabel">Anexos y componentes adicionales</div>
+      <div class="chips" id="extraChips"></div>
+    </div>
+
+    <!-- ===== LOOP DE VERIFICACIÓN (configuración embebida en el prompt) ===== -->
+    <div class="group">
+      <div class="loop-group-head">
+        <div class="glabel">🔁 Loop de Verificación y Corrección</div>
+        <button class="btn ghost" id="loopToggleAll" style="padding:3px 8px;font-size:9.5px">Todos</button>
+      </div>
+      <div class="loop-checks" id="loopChecksGrid"></div>
+      <div class="row3" style="margin-bottom:8px">
+        <select id="loopDepth">
+          <option value="ligero">Profundidad: ligera</option>
+          <option value="estandar">Profundidad: estándar</option>
+          <option value="exhaustivo">Profundidad: exhaustiva</option>
+        </select>
+        <select id="loopMode">
+          <option value="solo-reportar">Modo: solo reportar</option>
+          <option value="auto-corregir">Modo: auto-corregir</option>
+          <option value="auto-corregir-reportar">Modo: corregir + reportar</option>
+        </select>
+        <select id="loopIterations">
+          <option value="1">Iteraciones: 1</option>
+          <option value="2">Iteraciones: 2</option>
+          <option value="3">Iteraciones: 3</option>
+        </select>
+      </div>
+      <div class="chips">
+        <button class="chip green" data-loop-opt="loopTraceability">📊 Tabla de trazabilidad</button>
+        <button class="chip green" data-loop-opt="loopRecommendations">💡 Recomendaciones de mejora</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PREVIEW ================= -->
+  <section class="panel preview-panel">
+    <div class="panel-head">
+      <h2>📋 Salida generada</h2>
+      <div class="tabs" style="max-width:340px">
+        <button class="tab active" data-tab="prompt">Prompt</button>
+        <button class="tab" data-tab="json">JSON</button>
+        <button class="tab" data-tab="guide">Guía</button>
+      </div>
+    </div>
+
+    <pre class="out" id="outPrompt"></pre>
+    <pre class="out hidden" id="outJson"></pre>
+    <div class="out hidden guide" id="outGuide"></div>
+
+    <div class="actions">
+      <button class="btn primary" id="btnCopy">📋 Copiar</button>
+      <button class="btn" id="btnTxt">⬇️ .txt</button>
+      <button class="btn" id="btnJson">⬇️ .json</button>
+      <button class="btn" id="btnMd">⬇️ .md</button>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast">✓ Copiado</div>
+
+<script>
+/* =========================================================
+   1. CATÁLOGOS
+   ========================================================= */
+
+const ENGINES = {
+  generico:  {name:'Genérico',  tag:'Cualquier motor', icon:'⚙️', style:'md',  tip:'Instrucciones universales compatibles con cualquier motor de IA. Markdown estándar, sin formato propietario.'},
+  chatgpt:   {name:'ChatGPT',   tag:'GPT-4o / o3', icon:'🟢', style:'md',       tip:'Markdown, tablas y bloques. Para o3, pide “analiza internamente y entrega sólo el resultado final”.'},
+  claude:    {name:'Claude',    tag:'Sonnet / Opus', icon:'🟠', style:'xml',    tip:'XML para máximo apego. Contexto antes de la tarea y restricciones al final.'},
+  gemini:    {name:'Gemini',    tag:'2.5 Pro', icon:'🔵', style:'num',          tip:'Contextos largos (1M). Secciones numeradas y restricción final de “no resumas”.'},
+  copilot:   {name:'Copilot',   tag:'M365', icon:'🟦', style:'md',             tip:'Directo y corporativo. Divide en fases si supera ~8.000 caracteres.'},
+  perplexity:{name:'Perplexity',tag:'Sonar', icon:'🟣', style:'md',             tip:'Ideal para validar vigencia normativa panameña. Pide fuentes oficiales.'},
+  deepseek:  {name:'DeepSeek',  tag:'V3 / R1', icon:'🐋', style:'md',           tip:'Muy bueno para matrices de riesgo y cálculos de capacidad.'},
+  mistral:   {name:'Mistral',   tag:'Large', icon:'🟧', style:'md',             tip:'Instrucciones directas y checklists. Prioriza apartados críticos.'},
+  llama:     {name:'Llama',     tag:'3.x', icon:'🦙', style:'md',               tip:'Define rol y formato explícitos. Repite el formato esperado al final.'}
+};
+
+const FACILITIES = [
+  {id:'familia',     icon:'🏠', name:'Familiar',       sub:'Hogar / Familia'},
+  {id:'escolar',     icon:'🏫', name:'Escolar',        sub:'K-12 / MEDUCA'},
+  {id:'industrial',  icon:'🏭', name:'Industrial',     sub:'Planta / MITRADEL-CSS'},
+  {id:'ph',          icon:'🏢', name:'Propiedad Horizontal', sub:'PH / Ley 284'},
+  {id:'oficina',     icon:'🏛️', name:'Oficina Pública',sub:'Gobierno / PADE'},
+  {id:'universidad', icon:'🎓', name:'Universidad',    sub:'Campus / Ley 38'},
+  {id:'comercial',   icon:'🛍️', name:'Centro Comercial',sub:'Retail / Bomberos-NFPA'}
+];
+
+/* =========================================================
+   NORMATIVA PANAMÁ POR SECTOR — ACTUALIZADA (2025-2026)
+   ========================================================= */
+const NORMATIVA_PANAMA = {
+  familia: {
+    label: 'Plan de Emergencia Familiar / Hogar',
+    role: 'especialista en protección civil para el hogar y planes familiares en Panamá',
+    context: 'Vivienda familiar (casa o apartamento) con residentes permanentes, posibles visitantes y personas vulnerables (niños, lactantes, adultos mayores, personas con discapacidad). La familia es el primer respondedor.',
+    norms: [
+      'Ley 7 de 11 de febrero de 2005 (SINAPROC) y Decreto Ejecutivo 177 de 30 de abril de 2008',
+      'Ley 38 de 2 de diciembre de 2014 (educación en gestión integral de riesgo de desastres)',
+      'Decreto Ejecutivo 1101 de 30 de diciembre de 2010 (Política Nacional de Gestión Integral de Riesgo de Desastres)',
+      'Decreto Ejecutivo 47 de 22 de abril de 2024 (Día Nacional del Simulacro, segundo lunes de octubre)',
+      'Guías comunitarias del SINAPROC y de la Cruz Roja Panameña para planes familiares'
+    ],
+    zones: ['Dormitorios','Sala / comedor','Cocina','Baños','Balcón o patio','Garaje o estacionamiento','Cuarto de máquinas / tanque','Escaleras y pasillos','Acceso principal','Área exterior / punto de reunión'],
+    actors: ['Jefe/a de familia o responsable principal','Cónyuge o pareja','Hijos y dependientes','Adultos mayores','Personas con discapacidad','Personal doméstico','Vecinos y comunidad','Comité de calle / barriada'],
+    specifics: [
+      'Punto de reunión familiar externo (frente a la vivienda o zona segura de la comunidad)',
+      'Contacto fuera de la ciudad o del país como punto de comunicación',
+      'Kit de emergencia familiar (agua, alimentos no perecederos, documentos, medicamentos)',
+      'Mochila de emergencia por persona con documentos y medicamentos',
+      'Rutas de evacuación desde cada habitación y llaves de paso de gas/agua/luz',
+      'Ejercicios familiares semestrales y revisión anual del plan',
+      'Coordinación con el comité de la barriada / junta comunal',
+      'Plan de reencuentro y comunicación con niños pequeños'
+    ],
+    defaultRisks: ['incendio','sismo','inundacion','gas','electrico','sanitario','violencia']
+  },
+  escolar: {
+    label: 'Centro Educativo (Preescolar, Primaria y Secundaria)',
+    role: 'especialista en protección civil escolar, gestión integral de riesgos de desastres y seguridad de menores en Panamá',
+    context: 'Institución educativa panameña con población infantil y adolescente, alta densidad de ocupantes por aula, personal docente y administrativo, y presencia de tutores en horarios de entrada y salida.',
+    norms: [
+      'Ley 7 de 11 de febrero de 2005 (SINAPROC) y Decreto Ejecutivo 177 de 30 de abril de 2008',
+      'Ley 38 de 2 de diciembre de 2014 (Educación Ambiental y Gestión Integral de Riesgo de Desastres)',
+      'Resolución 964 de 27 de octubre de 2022 del MEDUCA (Guía para el Plan Escolar de Gestión Integral de Riesgos – PEGIR)',
+      'Decreto Ejecutivo 1101 de 30 de diciembre de 2010 (Política Nacional de Gestión Integral de Riesgo de Desastres)',
+      'Decreto Ejecutivo 47 de 22 de abril de 2024 (Día Nacional del Simulacro)',
+      'Texto Único de la Ley 47 de 1946, Orgánica de Educación'
+    ],
+    zones: ['Aulas','Patio cívico y canchas','Laboratorio de ciencias','Sala de cómputo','Biblioteca','Comedor / cooperativa','Sanitarios','Dirección y administración','Bodegas y cuarto de máquinas','Estacionamiento'],
+    actors: ['Dirección escolar','Comité Escolar de Protección Civil','Coordinación de brigadas','Docentes por grupo','Personal administrativo','Intendencia y mantenimiento','Brigada estudiantil','Tutores / padres de familia'],
+    specifics: [
+      'Control de asistencia y conteo por grupo durante la evacuación (PEGIR)',
+      'Protocolo de entrega de menores a tutores acreditados',
+      'Evacuación asistida de niños con discapacidad o crisis nerviosa',
+      'Mochila de emergencia y kit de aula por grupo',
+      'Coordinación con SINAPROC, Bomberos, Policía Nacional y Protección Civil municipal',
+      'Simulacros con hipótesis múltiple y evaluación de tiempos (Decreto 47 de 2024)',
+      'Manejo de crisis emocional post-evento en menores'
+    ],
+    defaultRisks: ['incendio','sismo','quimico','violencia','sanitario','clima']
+  },
+  industrial: {
+    label: 'Planta Industrial / Manufactura',
+    role: 'especialista en seguridad industrial, higiene, salud ocupacional y continuidad de operaciones en Panamá',
+    context: 'Instalación productiva panameña con procesos, maquinaria, materias primas peligrosas, almacenes y personal operativo en turnos rotativos. Debe cumplir con MITRADEL, CSS y MINSA, y el Reglamento Nacional de Prevención de Incendios.',
+    norms: [
+      'Ley 7 de 2005 (SINAPROC) y Decreto Ejecutivo 177 de 2008',
+      'Decreto Ejecutivo 2 de 15 de febrero de 2008 (Seguridad, Salud e Higiene en la Construcción)',
+      'Resolución 45588 de 2011 de la Junta Directiva de la CSS (Sistema de Prevención de Riesgos Laborales) — vigente',
+      'Código de Trabajo de Panamá y normativa del MITRADEL sobre Comités de Salud y Seguridad',
+      'Reglamento Nacional de Prevención de Incendios y normas NFPA adoptadas por el Benemérito Cuerpo de Bomberos (NFPA 101:2024, NFPA 72, NFPA 1)',
+      'Decreto Ejecutivo 47 de 2024 (Día Nacional del Simulacro)'
+    ],
+    zones: ['Producción','Almacén de materias primas','Almacén de producto terminado','Cuarto de máquinas','Subestación eléctrica','Laboratorio de calidad','Taller de mantenimiento','Caseta de vigilancia','Comedor','Patio de maniobras y carga'],
+    actors: ['Dirección de planta','Gerencia de Seguridad y Salud','Comité de Seguridad e Higiene','Brigada de evacuación','Brigada de primeros auxilios','Brigada contra incendio','Brigada de comunicación','Mantenimiento y servicios generales'],
+    specifics: [
+      'Paro seguro de emergencia (LOTO) y despresurización de líneas',
+      'Hojas de datos de seguridad (SDS) y matriz de compatibilidad de sustancias',
+      'Escenarios de derrame, fuga de gas, explosión y atmósferas ATEX',
+      'Confinamiento y control de efluentes hacia drenaje',
+      'Notificación a MITRADEL, MINSA y SINAPROC según corresponda',
+      'Plan de continuidad con RTO/RPO por línea de producción',
+      'Control de contratistas y personal en sitio durante la emergencia'
+    ],
+    defaultRisks: ['incendio','quimico','electrico','estructural','gas','clima','transporte']
+  },
+  ph: {
+    label: 'Propiedad Horizontal (PH) – Edificio residencial o multiusos',
+    role: 'especialista en protección civil y gestión de emergencias para el Régimen de Propiedad Horizontal en Panamá',
+    context: 'Edificio o conjunto residencial sujeto al Régimen de Propiedad Horizontal (Ley 284 de 2022, con proceso de actualización anunciado por el Miviot), con áreas comunes, unidades privativas, administración profesional, junta directiva y asamblea de propietarios. Puede ser de gran altura (rascacielos) o de mediana altura, con sistemas de detección, alarma, rociadores y evacuación vertical. La responsabilidad del plan recae en la administración y la junta directiva, y debe coordinarse con el Benemérito Cuerpo de Bomberos y SINAPROC.',
+    norms: [
+      'Ley 284 de 14 de febrero de 2022 (Régimen de Propiedad Horizontal, subroga la Ley 31 de 2010) — vigente, con propuesta de modificación en trámite (Anteproyecto 112, 2026) y actualización anunciada por el Miviot',
+      'Ley 7 de 2005 (SINAPROC) y Decreto Ejecutivo 177 de 2008',
+      'Decreto Ejecutivo 47 de 22 de abril de 2024 (Día Nacional del Simulacro, segundo lunes de octubre)',
+      'Reglamento Nacional de Prevención de Incendios y normas NFPA adoptadas por el Benemérito Cuerpo de Bomberos (NFPA 101:2024, NFPA 72, NFPA 1)',
+      'Programa de regularización del Benemérito Cuerpo de Bomberos para edificios de gran altura (detección, alarma, evacuación, rociadores) — aplicable a PH',
+      'Reglamento de Copropiedad y Reglamento de Uso de la PH (aprobados por la Asamblea de Propietarios)'
+    ],
+    zones: [
+      'Lobby y recepción','Pasillos y corredores de evacuación','Escaleras de emergencia','Ascensores (no usar en incendio)','Cuarto de máquinas y bombas','Subestación eléctrica','Cuarto de basura y ductos','Estacionamientos (subterráneos y a nivel)','Áreas comunes (piscina, gimnasio, salón social)','Azotea y tanques','Unidades privativas (referencia)','Punto de reunión externo'
+    ],
+    actors: [
+      'Junta Directiva de la PH','Administrador de la PH','Comité de Seguridad Integral','Brigada de emergencias (evacuación, primeros auxilios, contra incendio)','Personal de seguridad y vigilancia','Personal de mantenimiento','Copropietarios y residentes','Inquilinos y visitantes','Enlace con Benemérito Cuerpo de Bomberos y SINAPROC'
+    ],
+    specifics: [
+      'El plan de emergencia es responsabilidad de la Junta Directiva y debe ser aprobado por la Asamblea de Propietarios (Ley 284)',
+      'Debe actualizarse anualmente y entregarse copia al Benemérito Cuerpo de Bomberos y a la unidad de policía más cercana',
+      'Simulacros de evacuación recomendados cada 6 meses y alineados con el simulacro nacional (Decreto 47 de 2024)',
+      'Coordinación obligatoria con el Benemérito Cuerpo de Bomberos para la revisión de sistemas de detección, alarma, rociadores y extintores (NFPA 101:2024)',
+      'Evacuación vertical segura: uso exclusivo de escaleras de emergencia, prohibición de ascensores en caso de incendio, y puntos de reunión en planta baja o área exterior',
+      'Protocolo para personas con discapacidad, adultos mayores y menores: evacuación asistida en escaleras y áreas de refugio',
+      'Gestión del Fondo para Imprevistos como fondo de emergencia para cubrir necesidades imprevistas o de urgencia (Ley 284)',
+      'Comunicación masiva a copropietarios y residentes (voceo, app, SMS, correo, cartelería en áreas comunes)',
+      'Coordinación con administradores de PH vecinas y comité de la barriada'
+    ],
+    defaultRisks: [
+      'incendio','sismo','inundacion','gas','electrico','estructural','amenaza_activa','sanitario','clima','bomba'
+    ]
+  },
+  oficina: {
+    label: 'Oficina Pública / Dependencia de Gobierno',
+    role: 'especialista en protección civil para inmuebles administrativos y atención ciudadana en Panamá',
+    context: 'Inmueble administrativo panameño con atención al público, archivo documental, servidores públicos y usuarios externos no familiarizados con las instalaciones. Debe contar con un Plan de Acción Durante Emergencia (PADE).',
+    norms: [
+      'Ley 7 de 2005 (SINAPROC) y Decreto Ejecutivo 177 de 2008',
+      'Plan de Acción Durante Emergencia (PADE) exigido a entidades públicas',
+      'Decreto Ejecutivo 47 de 2024 (Día Nacional del Simulacro)',
+      'Normativa de la Contraloría General de la República sobre resguardo de archivos y bienes públicos',
+      'Reglamento Nacional de Prevención de Incendios y NFPA (NFPA 101:2024)'
+    ],
+    zones: ['Área de atención al ciudadano','Oficinas administrativas','Sala de juntas','Archivo documental','Bodega','Centro de datos / site','Comedor','Estacionamiento','Módulo de vigilancia'],
+    actors: ['Titular de la dependencia','Unidad Interna de Protección Civil','Jefe de brigadas','Enlace administrativo','Personal de vigilancia','Servicios generales','Responsable de archivo y TI'],
+    specifics: [
+      'Evacuación de usuarios externos sin conocimiento del inmueble',
+      'Protección del archivo documental y expedientes críticos',
+      'Continuidad de trámites y servicios al ciudadano',
+      'Protocolo de resguardo de información y equipos',
+      'Coordinación con seguridad institucional y Policía Nacional',
+      'Atención a personas mayores y con discapacidad en sala de espera',
+      'Protocolo ante amenaza activa en áreas de atención al público'
+    ],
+    defaultRisks: ['incendio','sismo','violencia','bomba','ciber','electrico','amenaza_activa']
+  },
+  universidad: {
+    label: 'Universidad / Campus Universitario',
+    role: 'especialista en gestión de riesgos en campus universitarios y laboratorios en Panamá',
+    context: 'Campus de gran extensión con múltiples edificios, laboratorios, talleres, biblioteca, residencias y comunidad flotante variable. Debe cumplir con la Ley 38 de 2014 y las guías de autoprotección institucionales.',
+    norms: [
+      'Ley 7 de 2005 (SINAPROC) y Decreto Ejecutivo 177 de 2008',
+      'Ley 38 de 2 de diciembre de 2014 (Gestión Integral de Riesgo de Desastres en todos los niveles)',
+      'Decreto Ejecutivo 47 de 2024 (Día Nacional del Simulacro)',
+      'Guías de autoprotección de universidades públicas (UTP, UDELAS, UP)',
+      'Reglamento Nacional de Prevención de Incendios y NFPA (NFPA 101:2024)'
+    ],
+    zones: ['Aulas y auditorios','Laboratorios de química, física y biología','Talleres y maquinaria','Biblioteca','Centro de cómputo y servidores','Rectoría y áreas administrativas','Cafeterías','Residencias estudiantiles','Instalaciones deportivas','Estacionamientos'],
+    actors: ['Rectoría / Secretaría Administrativa','Unidad de Protección Civil Universitaria','Coordinadores de edificio','Brigadas por facultad','Servicios médicos universitarios','Seguridad y vigilancia','Representantes estudiantiles'],
+    specifics: [
+      'Población flotante y horarios irregulares: control de ocupantes por edificio',
+      'Riesgos de laboratorio: químicos, biológicos, radiactivos y criogénicos',
+      'Evacuación de personas con discapacidad en edificios de varios niveles',
+      'Coordinación con SINAPROC, Bomberos y hospital universitario',
+      'Comunicación masiva multicanal (app, SMS, altavoces, correo)',
+      'Suspensión de actividades y protocolo de cierre de campus',
+      'Protocolo de confinamiento ante amenaza activa en campus abierto'
+    ],
+    defaultRisks: ['sismo','incendio','quimico','violencia','ciber','clima','multitud','amenaza_activa']
+  },
+  comercial: {
+    label: 'Centro Comercial / Plaza Comercial',
+    role: 'especialista en gestión de emergencias en inmuebles de alta afluencia en Panamá',
+    context: 'Inmueble de alta afluencia con locales independientes, food court, cines, estacionamiento y público diverso. La supervisión de sistemas de protección contra incendios corresponde al Benemérito Cuerpo de Bomberos, con base en NFPA.',
+    norms: [
+      'Ley 7 de 2005 (SINAPROC) y Decreto Ejecutivo 177 de 2008',
+      'Reglamento Nacional de Prevención de Incendios y normas NFPA (NFPA 101:2024, NFPA 72, NFPA 1)',
+      'Resolución JTIA N°102-2013 (adopta NFPA 72 para alarmas de incendio)',
+      'Decreto Ejecutivo 47 de 2024 (Día Nacional del Simulacro)',
+      'Normativa municipal sobre uso de suelo y espectáculos públicos'
+    ],
+    zones: ['Pasillos y plazas','Locales comerciales','Food court','Salas de cine','Área de juegos infantiles','Supermercado','Estacionamiento (incl. subterráneo)','Cuarto de máquinas y azotea','Oficinas administrativas','Muelle de carga'],
+    actors: ['Gerencia general del centro comercial','Jefatura de seguridad','Brigada interna de emergencias','Locatarios y sus encargados','Seguridad privada y CCTV','Mantenimiento y servicios','Enlace con SINAPROC y Bomberos'],
+    specifics: [
+      'Coordinación con locatarios y personal tercerizado',
+      'Evacuación de alta afluencia y manejo de pánico',
+      'Cierre de accesos y control de multitudes',
+      'Riesgos de estacionamiento subterráneo e inundación',
+      'Protocolo de menores extraviados y punto de encuentro familiar',
+      'Coordinación con seguridad privada, monitoreo CCTV y Bomberos',
+      'Confinamiento por amenaza de bomba, intrusión armada o tirador activo'
+    ],
+    defaultRisks: ['incendio','sismo','multitud','bomba','violencia','inundacion','electrico','amenaza_activa']
+  }
+};
+
+/* =========================================================
+   ESTÁNDARES INTERNACIONALES — ACTUALIZADOS
+   ========================================================= */
+const NORMATIVA_INTERNACIONAL = [
+  'NFPA 1600:2024 / NFPA 1660:2024 (Standard on Continuity, Emergency, and Crisis Management): criterios para programas de gestión de desastres, emergencias y continuidad. La edición 2024 es la referencia vigente.',
+  'ISO 22301:2019 (Sistemas de Gestión de Continuidad del Negocio): requisitos para planificar, establecer, implementar, operar y mejorar un sistema de continuidad.',
+  'ISO 31000:2018 (Gestión del Riesgo): principios y directrices para identificar, analizar, evaluar, tratar, monitorear y comunicar riesgos.',
+  'NFPA 101:2024 (Life Safety Code): requisitos mínimos para diseño, operación y mantenimiento de edificios, con énfasis en medios de egreso, evacuación y protección de la vida. Edición 2024 vigente y adoptada por el Benemérito Cuerpo de Bomberos de Panamá.',
+  'FEMA CPG 101 (Comprehensive Preparedness Guide 101): guía para desarrollar y mantener planes de operaciones de emergencia.',
+  'Marco de Sendai para la Reducción del Riesgo de Desastres 2015-2030: 7 metas globales y 4 prioridades de acción.'
+];
+
+const RISKS = [
+  ['incendio','🔥 Incendio / explosión'],
+  ['sismo','🌎 Sismo / terremoto'],
+  ['inundacion','🌊 Inundación / lluvias'],
+  ['quimico','☣️ Químico / derrame'],
+  ['electrico','⚡ Eléctrico / corto circuito'],
+  ['estructural','🏚️ Colapso estructural'],
+  ['bomba','💣 Amenaza de bomba'],
+  ['violencia','🚨 Violencia / intrusión'],
+  ['amenaza_activa','🎯 Amenaza activa / tirador'],
+  ['sanitario','🦠 Sanitario / epidemia'],
+  ['ciber','💻 Ciberataque / caída TI'],
+  ['clima','🌪️ Climático extremo'],
+  ['gas','🛢️ Fuga de gas'],
+  ['forestal','🌲 Incendio forestal / interfaz'],
+  ['multitud','👥 Aglomeración / estampida'],
+  ['transporte','🚛 Transporte / logística']
+];
+
+const PHASES = [
+  ['prevencion','Prevención'],
+  ['mitigacion','Mitigación'],
+  ['preparacion','Preparación'],
+  ['respuesta','Respuesta'],
+  ['recuperacion','Recuperación'],
+  ['continuidad','Continuidad de operación']
+];
+
+const EXTRAS = [
+  ['matriz','Matriz de riesgos'],
+  ['flujogramas','Flujogramas'],
+  ['checklists','Checklists operativos'],
+  ['cronograma','Cronograma anual'],
+  ['presupuesto','Presupuesto estimado'],
+  ['kpi','KPIs y métricas'],
+  ['directorio','Directorio telefónico'],
+  ['formatos','Formatos y actas'],
+  ['glosario','Glosario'],
+  ['capacitacion','Plan de capacitación'],
+  ['planos','Planos y señalización'],
+  ['simulacro','Guion de simulacro']
+];
+
+const FORMATS = [
+  {id:'texto', name:'📄 Documento de texto'},
+  {id:'pdf',   name:'📕 PDF (print-ready)'},
+  {id:'json',  name:'🧩 JSON estructurado'}
+];
+
+/* =========================================================
+   2. ESTADO — TODO VACÍO / DESACTIVADO POR DEFECTO
+   ========================================================= */
+const state = {
+  engine:null,
+  facility:null,
+  format:null,
+  language:null,
+  detail:null,
+  tone:null,
+  occupants:1,
+  area:50,
+  shifts:1,
+  flags:new Set(),
+  risks:new Set(),
+  phases:new Set(),
+  extras:new Set(),
+  // Loop verification config — TODO DESACTIVADO
+  loopEnabled:{
+    completitud:false,
+    normativaPan:false,
+    estandaresIntl:false,
+    consistencia:false,
+    procedimientos:false,
+    auditoria:false
+  },
+  loopDepth:'estandar',
+  loopMode:'auto-corregir-reportar',
+  loopIterations:1,
+  loopTraceability:false,
+  loopRecommendations:false
+};
+
+/* =========================================================
+   3. HELPERS DE DEFAULTS
+   ========================================================= */
+function effectiveEngineId(){ return state.engine || 'generico'; }
+function effectiveFormatId(){ return state.format || 'texto'; }
+function effectiveLanguage(){ return state.language || 'español'; }
+function effectiveDetail(){ return state.detail || 'estándar'; }
+function effectiveTone(){ return state.tone || 'técnico-normativo'; }
+
+/* =========================================================
+   4. RENDER DE CONTROLES
+   ========================================================= */
+const $ = s => document.querySelector(s);
+
+function buildControls(){
+  $('#engineGrid').innerHTML = Object.entries(ENGINES).map(([id,e])=>`
+    <button class="engine ${id===state.engine?'active':''}" data-engine="${id}">
+      <b>${e.icon} ${e.name}</b><small>${e.tag}</small>
+    </button>`).join('');
+
+  $('#facilityGrid').innerHTML = FACILITIES.map(f=>`
+    <button class="fac ${f.id===state.facility?'active':''}" data-fac="${f.id}">
+      <span class="ico">${f.icon}</span><b>${f.name}</b><small>${f.sub}</small>
+    </button>`).join('');
+
+  $('#formatChips').innerHTML = FORMATS.map(f=>`
+    <button class="chip amber ${f.id===state.format?'on':''}" data-format="${f.id}">${f.name}</button>`).join('');
+
+  $('#riskChips').innerHTML = RISKS.map(([id,l])=>`
+    <button class="chip ${state.risks.has(id)?'on':''}" data-risk="${id}">${l}</button>`).join('');
+
+  $('#phaseChips').innerHTML = PHASES.map(([id,l])=>`
+    <button class="chip green ${state.phases.has(id)?'on':''}" data-phase="${id}">${l}</button>`).join('');
+
+  $('#extraChips').innerHTML = EXTRAS.map(([id,l])=>`
+    <button class="chip amber ${state.extras.has(id)?'on':''}" data-extra="${id}">${l}</button>`).join('');
+
+  // Loop checks — todos desactivados por defecto
+  $('#loopChecksGrid').innerHTML = Object.entries(LOOP_DEFS).map(([k,d])=>`
+    <button class="loop-check ${state.loopEnabled[k]?'on':''}" data-loop="${k}" title="${d.desc}">
+      <span class="dot"></span>${d.num}. ${d.title}
+    </button>
+  `).join('');
+
+  $('#loopDepth').value = state.loopDepth;
+  $('#loopMode').value = state.loopMode;
+  $('#loopIterations').value = state.loopIterations;
+
+  document.querySelectorAll('[data-loop-opt]').forEach(b=>{
+    b.classList.toggle('on', !!state[b.dataset.loopOpt]);
+  });
+}
+
+/* =========================================================
+   5. LOOP DE VERIFICACIÓN (definiciones)
+   ========================================================= */
+const LOOP_DEFS = {
+  completitud:{
+    num:1, title:'Completitud',
+    desc:'Verifica que el plan contenga TODAS las secciones de la estructura obligatoria.',
+    body:(f)=>
+`Comprueba que el plan contenga TODAS las secciones de la estructura obligatoria. Marca faltantes y ${state.loopMode.includes('corregir')?'complétalos':'repórtalos'}.`
+  },
+  normativaPan:{
+    num:2, title:'Normativa PAN',
+    desc:'Cita correctamente la Ley 7 de 2005, Decreto 177 de 2008 y la normativa sectorial.',
+    body:(f)=>
+`- Cita correctamente la **Ley 7 de 2005**, el **Decreto Ejecutivo 177 de 2008** y la normativa sectorial aplicable a ${f.label}.
+- Detecta normas inventadas o artículos inexistentes. Sustitúyelos o marca **[VERIFICAR VIGENCIA]**.
+- Alinea con el **Decreto Ejecutivo 47 de 2024** (simulacro del segundo lunes de octubre).`
+  },
+  estandaresIntl:{
+    num:3, title:'Estándares int\'l',
+    desc:'Comprueba la cita correcta de NFPA 1600/1660:2024, ISO 22301:2019, ISO 31000:2018, NFPA 101:2024, FEMA CPG 101 y Sendai.',
+    body:(f)=>
+`- Comprueba la cita correcta de **NFPA 1600:2024 / NFPA 1660:2024**, **ISO 22301:2019**, **ISO 31000:2018**, **NFPA 101:2024**, **FEMA CPG 101** y el **Marco de Sendai**.
+- Verifica que el plan de continuidad (RTO/RPO) esté alineado con ISO 22301.
+- Verifica que la matriz de riesgos use metodología ISO 31000.`
+  },
+  consistencia:{
+    num:4, title:'Consistencia num.',
+    desc:'Ocupantes, superficie, turnos, tiempos y capacidades deben ser matemáticamente coherentes.',
+    body:(f)=>
+`- Ocupantes (**${fmtNum(state.occupants)}**), superficie (**${fmtNum(state.area)} m²**) y turnos (**${state.shifts}**) deben ser coherentes en todo el documento.
+- Tiempo de evacuación, ancho de rutas y capacidad de puntos de reunión deben ser matemáticamente consistentes.
+- Detecta y corrige contradicciones.`
+  },
+  procedimientos:{
+    num:5, title:'Procedimientos',
+    desc:'Cada riesgo con responsable, pasos numerados, tiempo objetivo y criterio de cierre.',
+    body:(f)=>
+`- Cada riesgo debe tener procedimiento con: **responsable, pasos numerados, tiempo objetivo y criterio de cierre**.
+- Verbos en imperativo, lenguaje claro, sin ambigüedad.
+- Sin datos inventados (nombres, teléfonos, direcciones) sin marcadores **[NOMBRE]**, **[TELÉFONO]**, **[DIRECCIÓN]**.
+- Verifica que el formato de salida original se respete.`
+  },
+  auditoria:{
+    num:6, title:'Auditoría final',
+    desc:'Genera tabla de trazabilidad y recomendaciones de mejora continua.',
+    body:(f)=>
+`- Genera una tabla de **trazabilidad de correcciones** con: hallazgo, ubicación, corrección aplicada.
+- Añade una sección final de **"Recomendaciones de mejora continua"** (3–5 puntos).
+- Entrega el **plan final corregido** y el **reporte de auditoría**.`
+  }
+};
+
+function buildLoopSection(){
+  const enabledKeys = Object.keys(LOOP_DEFS).filter(k=>state.loopEnabled[k]);
+  if(enabledKeys.length === 0) return null;
+  if(!state.facility) return null;
+
+  const f = NORMATIVA_PANAMA[state.facility];
+
+  const depthMap = {
+    ligero:     'identifica hallazgos principales sin profundizar; prioriza los de mayor impacto',
+    estandar:   'identifica y documenta hallazgos con ejemplos y ubicación específica',
+    exhaustivo: 'analiza cada sección y subsección línea por línea; documenta todos los hallazgos'
+  };
+  const modeMap = {
+    'solo-reportar':          'SOLO REPORTAR — entrega únicamente el reporte de hallazgos. NO corrijas el plan.',
+    'auto-corregir':          'AUTO-CORREGIR — corrige el plan en cada ciclo antes de avanzar al siguiente.',
+    'auto-corregir-reportar': 'AUTO-CORREGIR + REPORTAR — corrige el plan Y documenta cada corrección en la tabla de trazabilidad.'
+  };
+
+  const iterLine = state.loopIterations > 1
+    ? `\n> Repite la secuencia completa **${state.loopIterations} veces consecutivas** o hasta que no se detecten nuevos hallazgos, lo que ocurra primero.\n`
+    : '';
+
+  const loopsText = enabledKeys.map(k=>{
+    const d = LOOP_DEFS[k];
+    return `**Loop ${d.num} — ${d.title}**\n${d.body(f)}`;
+  }).join('\n\n');
+
+  const entregables = [];
+  if(state.loopMode === 'solo-reportar'){
+    entregables.push('Reporte de hallazgos por ciclo (el plan original sin modificar).');
+  } else {
+    entregables.push('El **plan de emergencia completo y corregido**, en el formato de salida especificado arriba.');
+    entregables.push('Reporte de hallazgos por ciclo con ubicación y corrección aplicada.');
+    if(state.loopTraceability) entregables.push('Tabla de trazabilidad de correcciones.');
+  }
+  if(state.loopRecommendations) entregables.push('Recomendaciones de mejora continua (3–5 puntos).');
+
+  return `**Esta sección es OBLIGATORIA.** Antes de entregar el plan final, ejecuta los siguientes ${enabledKeys.length} ciclos de verificación y corrección DE FORMA SECUENCIAL, aplicando el modo de corrección configurado en cada paso. No entregues nada hasta haber completado todos los ciclos.
+
+**Parámetros del loop:**
+- Ciclos activos: ${enabledKeys.length} de ${Object.keys(LOOP_DEFS).length}
+- Profundidad: ${state.loopDepth} (${depthMap[state.loopDepth]})
+- Modo: ${state.loopMode} (${modeMap[state.loopMode]})
+- Iteraciones: ${state.loopIterations}
+- Tabla de trazabilidad: ${state.loopTraceability?'Sí':'No'}
+- Recomendaciones de mejora: ${state.loopRecommendations?'Sí':'No'}
+${iterLine}
+${loopsText}
+
+**ENTREGABLE FINAL ESPERADO (obligatorio):**
+${entregables.map((e,i)=>`${i+1}. ${e}`).join('\n')}
+
+**IMPORTANTE:** El entregable principal debe ser la **VERSIÓN FINAL CORREGIDA** del plan, no el borrador inicial. El reporte de auditoría va al final, después del plan corregido.`;
+}
+
+/* =========================================================
+   6. CONSTRUCTOR DEL PROMPT
+   ========================================================= */
+function fmtNum(n){ return n.toLocaleString('es-MX'); }
+
+function detailWords(d){
+  return {ejecutivo:'1.200', 'estándar':'3.500', alto:'7.000', exhaustivo:'12.000'}[d] || '3.500';
+}
+
+// Solo el sector es obligatorio para generar el prompt
+function isConfigured(){
+  return !!state.facility;
+}
+
+function jsonSchemaPanama(){
+  return `{
+  "meta": {
+    "titulo": "string",
+    "version": "1.0",
+    "fecha": "YYYY-MM-DD",
+    "idioma": "string",
+    "tipoInstalacion": "string",
+    "pais": "Panamá",
+    "marcoNormativoPanama": ["string"],
+    "estandaresInternacionales": ["string"]
+  },
+  "alcance": {
+    "objetivo": "string",
+    "superficieM2": 0,
+    "poblacionMaxima": 0,
+    "turnos": 0,
+    "exclusiones": ["string"]
+  },
+  "analisisRiesgos": [
+    { "id": "R-01", "riesgo": "string", "probabilidad": "baja|media|alta",
+      "impacto": "bajo|medio|alto|crítico", "nivel": "string",
+      "controles": ["string"], "responsable": "string" }
+  ],
+  "organizacion": {
+    "comite":   [ { "rol": "string", "titular": "string", "suplente": "string", "contacto": "string" } ],
+    "brigadas": [ { "nombre": "string", "funciones": ["string"], "integrantes": 0 } ]
+  },
+  "directorioEmergencia": [
+    { "entidad": "string", "telefono": "string", "horario": "string" }
+  ],
+  "procedimientos": [
+    { "riesgoId": "R-01", "fase": "string", "pasos": ["string"],
+      "tiempoObjetivoMin": 0, "responsable": "string", "criterioCierre": "string" }
+  ],
+  "evacuacion": {
+    "rutas": [ { "id": "E-1", "origen": "string", "destino": "string", "capacidad": 0 } ],
+    "puntosReunion": [ { "id": "PR-1", "ubicacion": "string", "capacidad": 0 } ],
+    "tiempoEvacuacionObjetivoMin": 0
+  },
+  "equipamiento": [
+    { "tipo": "string", "cantidad": 0, "ubicacion": "string", "ultimaRevision": "YYYY-MM-DD" }
+  ],
+  "simulacros": [
+    { "fecha": "YYYY-MM-DD", "hipotesis": "string", "objetivo": "string", "metricas": ["string"] }
+  ],
+  "continuidad": { "rtoHoras": 0, "rpoHoras": 0, "procesosCriticos": ["string"] },
+  "presupuesto": [ { "concepto": "string", "costoEstimado": 0, "moneda": "USD" } ],
+  "anexos": ["string"]
+}`;
+}
+
+function structureList(){
+  return [
+    'Portada, control de versiones y firmas de aprobación',
+    'Objetivo, alcance y exclusiones del plan',
+    'Marco legal y normativo panameño aplicable (SINAPROC, Ley 284 PH, sectorial) + estándares internacionales',
+    'Metodología y análisis de riesgos (matriz probabilidad × impacto) alineada a ISO 31000',
+    'Organización de la emergencia: comité, brigadas, organigrama y matriz de suplencias',
+    'Directorio de emergencia (internos, SINAPROC, Bomberos, MINSA, MITRADEL, CSS, autoridades)',
+    'Procedimientos operativos por tipo de riesgo (uno por cada riesgo listado)',
+    'Rutas de evacuación, puntos de reunión, señalización y planos (alineado a NFPA 101:2024)',
+    'Sistemas y equipos de emergencia (extintores, detectores, alarmas, botiquines, DEA)',
+    'Comunicaciones y cadena de mando (códigos, protocolo de llamado, escalamiento)',
+    'Atención a personas vulnerables y evacuación asistida (accesibilidad – FEMA CPG 101)',
+    'Programa de simulacros: cronograma anual, hipótesis, evaluación y métricas (Decreto 47 de 2024)',
+    'Capacitación, difusión y cultura de prevención',
+    'Recursos, presupuesto estimado y proveedores críticos',
+    'Plan de continuidad de operaciones (RTO/RPO) alineado a ISO 22301:2019 y NFPA 1600:2024',
+    'Anexos: formatos, checklists, flujogramas, glosario y hojas de vida de equipos'
+  ].map((x,i)=>`${i+1}. ${x}`).join('\n');
+}
+
+function buildSections(){
+  const f = NORMATIVA_PANAMA[state.facility];
+  const S = [];
+
+  const risksSel = RISKS.filter(r=>state.risks.has(r[0]));
+  const phasesSel = PHASES.filter(p=>state.phases.has(p[0]));
+  const extrasSel = EXTRAS.filter(x=>state.extras.has(x[0]));
+  const flags = state.flags;
+
+  const fmtId = effectiveFormatId();
+  const lang = effectiveLanguage();
+  const tone = effectiveTone();
+  const det = effectiveDetail();
+
+  S.push({id:'rol', t:'ROL', b:
+`Eres un consultor senior en gestión integral de riesgos, protección civil y continuidad de operaciones en la República de Panamá, ${f.role}, con 20 años de experiencia.
+Dominas la Ley 7 de 2005 (SINAPROC), el Decreto Ejecutivo 177 de 2008, la Ley 284 de 2022 (Régimen de Propiedad Horizontal), la Ley 38 de 2014, las guías del MEDUCA, la normativa de MITRADEL y CSS, el Reglamento Nacional de Prevención de Incendios y las normas NFPA adoptadas por el Benemérito Cuerpo de Bomberos.
+Conoces y aplicas los estándares internacionales: NFPA 1600:2024, ISO 22301:2019, ISO 31000:2018, NFPA 101:2024, FEMA CPG 101 y el Marco de Sendai.
+Redactas planes de emergencia auditables, operativos y listos para implementación real en campo.`});
+
+  S.push({id:'contexto', t:'CONTEXTO', b:
+`${f.context}
+
+Instalación: ${f.label}
+País: Panamá
+Superficie aproximada: ${fmtNum(state.area)} m²
+Población máxima simultánea: ${fmtNum(state.occupants)} personas
+Turnos operativos: ${state.shifts}
+
+Zonas y áreas del inmueble:
+${f.zones.map(z=>`- ${z}`).join('\n')}
+
+Actores y responsables internos:
+${f.actors.map(a=>`- ${a}`).join('\n')}`});
+
+  S.push({id:'tarea', t:'TAREA', b:
+`Diseña un PLAN INTEGRAL DE EMERGENCIA Y CONTINGENCIA completo, autosuficiente y ejecutable para ${f.label} en Panamá, cubriendo el ciclo completo de gestión del riesgo${phasesSel.length?` (${phasesSel.map(p=>p[1]).join(', ')})`:''}.
+El plan debe poder implementarse sin consultar fuentes externas y debe ser defendible ante una auditoría o inspección de las autoridades panameñas competentes.
+
+**PROCESO EN DOS ETAPAS:**
+1. Redacta el plan completo siguiendo la estructura y el formato indicados.
+2. Aplica el **LOOP DE VERIFICACIÓN Y CORRECCIÓN** (sección obligatoria al final de este prompt) para auditar y corregir el plan antes de entregarlo.`});
+
+  S.push({id:'sector', t:'CONSIDERACIONES SECTORIALES OBLIGATORIAS (PANAMÁ)', b:
+f.specifics.map(s=>`- ${s}`).join('\n')});
+
+  const flagLines = [];
+  if(flags.has('vulnerable')) flagLines.push('- Incluye evacuación asistida para personas con discapacidad, movilidad reducida y adultos mayores.');
+  if(flags.has('menores'))    flagLines.push('- Ajusta procedimientos para evacuación de MENORES DE EDAD: conteo nominal por grupo, supervisión adulta permanente, punto de reunión infantil y protocolo de entrega a tutores acreditados.');
+  if(flags.has('lactantes'))  flagLines.push('- Incluye protocolo específico para LACTANTES Y BEBÉS: transporte seguro (canguros, portabebés), kit de emergencia con pañales, fórmula y biberones, punto de reunión con espacio para madres lactantes, y coordinación con pediatría / servicios médicos.');
+  if(flags.has('visitantes')) flagLines.push('- Considera público, visitantes y usuarios externos que desconocen las rutas y procedimientos.');
+  if(flags.has('quimicos'))   flagLines.push('- Incorpora inventario, SDS, compatibilidad y control de derrames de sustancias peligrosas.');
+  if(flags.has('nocturno'))   flagLines.push('- Ajusta procedimientos para operación nocturna: iluminación de emergencia, personal reducido y respuesta externa más lenta.');
+  if(flags.has('terceros'))   flagLines.push('- Integra a personal tercerizado, contratistas y proveedores en brigadas, conteo y comunicación.');
+  if(flagLines.length){
+    S.push({id:'condicionantes', t:'CONDICIONANTES OPERATIVAS', b:flagLines.join('\n')});
+  }
+
+  S.push({id:'normativo_panama', t:'MARCO NORMATIVO PANAMEÑO APLICABLE', b:
+`Normativa principal (República de Panamá):
+${f.norms.map(n=>`- ${n}`).join('\n')}
+
+Instrucción: cita cada norma panameña por su nombre completo, número y año, e indica el artículo o apartado aplicable cuando corresponda. Marca con "[VERIFICAR VIGENCIA]" cualquier referencia de la que no tengas certeza.`});
+
+  S.push({id:'normativo_internacional', t:'ESTÁNDARES INTERNACIONALES DE REFERENCIA (OBLIGATORIO CITAR)', b:
+`Integra explícitamente los siguientes estándares internacionales en los apartados que correspondan:
+${NORMATIVA_INTERNACIONAL.map(n=>`- ${n}`).join('\n')}
+
+Instrucción: cuando un procedimiento, matriz o plan de continuidad se alinee con alguno de estos estándares, cítalo por su nombre y año (ej. "conforme a ISO 22301:2019", "alineado a NFPA 1600:2024", "NFPA 101:2024").`});
+
+  S.push({id:'riesgos', t:'RIESGOS A CUBRIR', b:
+(risksSel.length
+  ? risksSel.map((r,i)=>`${i+1}. ${r[1].replace(/^\S+\s/,'')}`).join('\n')
+  : '1. Realiza tú el análisis de riesgos del inmueble según su giro y ubicación en Panamá.')});
+
+  S.push({id:'fases', t:'FASES DEL CICLO DE GESTIÓN', b:
+(phasesSel.length
+  ? phasesSel.map(p=>`- ${p[1]}`).join('\n')
+  : '- Ciclo completo: prevención, mitigación, preparación, respuesta y recuperación.')});
+
+  if(fmtId === 'json'){
+    S.push({id:'estructura', t:'ESQUEMA JSON OBLIGATORIO', b:
+`Devuelve EXCLUSIVAMENTE un objeto JSON válido que cumpla exactamente este esquema.
+No añadas texto antes ni después, no uses bloques de código Markdown, no incluyas comentarios.
+
+${jsonSchemaPanama()}
+
+Reglas del JSON:
+- Todos los campos del esquema deben estar presentes, aunque su valor sea vacío ([] o "").
+- Identificadores correlativos: "R-01", "E-1", "PR-1".
+- Fechas en formato ISO 8601 (YYYY-MM-DD).
+- Números numéricos, no cadenas.
+- Moneda del presupuesto: USD (curso legal en Panamá).
+- Si un dato no se conoce, usa "[COMPLETAR]".`});
+  } else {
+    S.push({id:'estructura', t:'ESTRUCTURA OBLIGATORIA DEL ENTREGABLE', b: structureList() +
+      (extrasSel.length ? `\n\nComponentes adicionales requeridos:\n${extrasSel.map(x=>`- ${x[1]}`).join('\n')}` : '')});
+  }
+
+  let fmtBody = '';
+  if(fmtId === 'pdf'){
+    fmtBody =
+`Entrega un documento LISTO PARA EXPORTAR A PDF:
+- Portada con título, institución, versión, fecha y elaboró/revisó/aprobó.
+- Tabla de contenido numerada.
+- Marca saltos de página con: ---PÁGINA---
+- Encabezado y pie de página sugeridos.
+- Tablas de ancho fijo, sin emojis, sin caracteres decorativos.
+- Al final, añade "Instrucciones de conversión a PDF".
+- Extensión objetivo: ~${detailWords(det)} palabras.`;
+  } else if(fmtId === 'json'){
+    fmtBody = 'Consulta la sección ESQUEMA JSON OBLIGATORIO. No incluyas texto fuera del objeto JSON.';
+  } else {
+    fmtBody =
+`Entrega en Markdown estructurado:
+- Encabezados jerárquicos H1, H2 y H3.
+- Tablas en Markdown para matrices, directorios, inventarios y cronogramas.
+- Listas numeradas para procedimientos paso a paso.
+- Negritas para conceptos clave y responsables.
+- Empieza directamente por la portada; sin preámbulos.
+- Extensión objetivo: ~${detailWords(det)} palabras.`;
+  }
+  S.push({id:'formato', t:'FORMATO DE SALIDA', b: fmtBody});
+
+  S.push({id:'calidad', t:'CRITERIOS DE CALIDAD', b:
+`- Cada procedimiento debe indicar: responsable, pasos numerados, tiempo objetivo y criterio de cierre.
+- Verbos en imperativo y lenguaje claro, apto para personas sin formación técnica.
+- Coherencia numérica (ocupantes, superficie, rutas, capacidad de puntos de reunión).
+- Cuando falte un dato, escribe [COMPLETAR: descripción] en lugar de inventarlo.
+- Distingue lo OBLIGATORIO por la normativa panameña de lo RECOMENDADO como buena práctica internacional.
+- Incluye al menos una tabla comparativa y un checklist accionable por cada fase relevante.
+- Estima tiempos de evacuación con justificación breve (referencia NFPA 101:2024).
+- Alineación con el Decreto Ejecutivo 47 de 2024 (simulacro nacional del segundo lunes de octubre).
+- Principios de ISO 31000:2018 en la matriz de riesgos y de ISO 22301:2019 en el plan de continuidad.`});
+
+  S.push({id:'restricciones', t:'RESTRICCIONES', b:
+`- No inventes nombres, teléfonos, direcciones ni instituciones reales; usa [NOMBRE], [TELÉFONO], [DIRECCIÓN].
+- No cites normativa inexistente ni artículos que no puedas respaldar.
+- No incluyas advertencias genéricas, disclaimers ni relleno.
+- No repitas el enunciado del prompt.
+- Idioma de salida: ${lang}.
+- Tono: ${tone}.`});
+
+  const loopSection = buildLoopSection();
+  if(loopSection){
+    S.push({id:'loop_verificacion', t:'LOOP DE VERIFICACIÓN Y CORRECCIÓN (OBLIGATORIO)', b: loopSection});
+  }
+
+  return S;
+}
+
+function renderSections(style){
+  const S = buildSections();
+  if(style === 'xml'){
+    return S.map(s=>`<${s.id}>\n${s.b}\n</${s.id}>`).join('\n\n');
+  }
+  if(style === 'num'){
+    return S.map((s,i)=>`${i+1}) ${s.t}\n${'─'.repeat(46)}\n${s.b}`).join('\n\n');
+  }
+  return S.map(s=>`## ${s.t}\n${s.b}`).join('\n\n');
+}
+
+function engineHeader(engineId){
+  const map = {
+    generico:  `# PROMPT MAESTRO — PLAN DE EMERGENCIA (PANAMÁ + INTERNACIONAL)\n> Instrucciones universales compatibles con cualquier motor de IA\n> Incluye loop de verificación y corrección embebido (2 etapas)\n`,
+    chatgpt:   `# PROMPT MAESTRO — PLAN DE EMERGENCIA (PANAMÁ + INTERNACIONAL)\n> Optimizado para ChatGPT (GPT-4o / o3) · con loop de verificación embebido\n`,
+    claude:    `<!-- PROMPT MAESTRO — PLAN DE EMERGENCIA (PANAMÁ + INTERNACIONAL) -->\n<!-- Optimizado para Claude · etiquetas XML · con loop de verificación embebido -->\n`,
+    gemini:    `# PROMPT MAESTRO — PLAN DE EMERGENCIA (PANAMÁ + INTERNACIONAL)\n> Optimizado para Gemini 2.5 Pro · con loop de verificación embebido\n`,
+    copilot:   `# PROMPT MAESTRO — PLAN DE EMERGENCIA (PANAMÁ + INTERNACIONAL)\n> Optimizado para Microsoft Copilot (M365) · con loop de verificación embebido\n`,
+    perplexity:`# PROMPT MAESTRO — PLAN DE EMERGENCIA (PANAMÁ + INTERNACIONAL)\n> Optimizado para Perplexity Sonar · con loop de verificación embebido\n`,
+    deepseek:  `# PROMPT MAESTRO — PLAN DE EMERGENCIA (PANAMÁ + INTERNACIONAL)\n> Optimizado para DeepSeek V3 / R1 · con loop de verificación embebido\n`,
+    mistral:   `# PROMPT MAESTRO — PLAN DE EMERGENCIA (PANAMÁ + INTERNACIONAL)\n> Optimizado para Mistral Large · con loop de verificación embebido\n`,
+    llama:     `# PROMPT MAESTRO — PLAN DE EMERGENCIA (PANAMÁ + INTERNACIONAL)\n> Optimizado para Llama 3.x · con loop de verificación embebido\n`
+  };
+  return map[engineId] || '';
+}
+
+function engineFooter(engineId){
+  const map = {
+    generico:  `\n\n---\n**NOTA:** Este prompt usa instrucciones universales. Si vas a usarlo en un motor específico, revisa que acepte Markdown y considera ajustar el formato de salida.`,
+    chatgpt:   `\n\n---\n**NOTA DE EJECUCIÓN:** Si el modelo es de razonamiento (o3), añade: "Analiza internamente y entrega únicamente el documento final, ya corregido tras el loop."`,
+    claude:    `\n\n<recordatorio>\n  <regla>Si falta un dato, usa [COMPLETAR: ...]; nunca inventes información.</regla>\n  <regla>Ejecuta el LOOP DE VERIFICACIÓN antes de entregar el plan final.</regla>\n  <regla>El entregable principal debe ser la versión final corregida, no el borrador.</regla>\n</recordatorio>`,
+    gemini:    `\n\n---\n**RESTRICCIÓN FINAL:** No resumas. No omitas apartados. Ejecuta el LOOP DE VERIFICACIÓN antes de entregar.`,
+    copilot:   `\n\n---\n**NOTA:** Si el prompt excede el límite, divide en dos mensajes: (1) generación del plan; (2) ejecución del loop de verificación.`,
+    perplexity:`\n\n---\n**FUENTES:** Al citar normativa panameña, incluye nombre completo, número y año. Verifica vigencia en Gaceta Oficial o portales de SINAPROC, MEDUCA, MITRADEL y Bomberos.`,
+    deepseek:  `\n\n---\n**RAZONAMIENTO:** Antes de redactar, verifica coherencia numérica. Luego ejecuta el loop de verificación. Entrega sólo el documento final corregido + reporte.`,
+    mistral:   `\n\n---\n**NOTA:** Prioriza los apartados críticos si el límite de contexto es reducido. Mantén el loop de verificación si al menos hay 1 ciclo activo.`,
+    llama:     `\n\n---\n**RECORDATORIO DE FORMATO:** Respeta la estructura numerada y ejecuta el LOOP DE VERIFICACIÓN antes de entregar.`
+  };
+  return map[engineId] || '';
+}
+
+/* Placeholder dinámico mientras no se selecciona el sector */
+function buildPlaceholder(){
+  const selected = [];
+  if(state.engine) selected.push(`- Motor de IA: **${ENGINES[state.engine].name}**`);
+  if(state.format) selected.push(`- Formato de salida: **${FORMATS.find(f=>f.id===state.format).name}**`);
+  if(state.language) selected.push(`- Idioma: **${state.language}**`);
+  if(state.detail) selected.push(`- Nivel de detalle: **${state.detail}**`);
+  if(state.tone) selected.push(`- Tono: **${state.tone}**`);
+  if(state.flags.size) selected.push(`- Condicionantes: **${state.flags.size}** activas`);
+  if(state.risks.size) selected.push(`- Riesgos: **${state.risks.size}** activos`);
+  if(state.phases.size) selected.push(`- Fases: **${state.phases.size}** activas`);
+  if(state.extras.size) selected.push(`- Anexos: **${state.extras.size}** activos`);
+  const loopActive = Object.values(state.loopEnabled).filter(Boolean).length;
+  if(loopActive > 0) selected.push(`- Loop de verificación: **${loopActive}/6** ciclos activos`);
+
+  return `# ⚠️ Selecciona un sector para generar el prompt
+
+El prompt se genera automáticamente en cuanto selecciones el **tipo de instalación / sector** en el panel izquierdo. Es el único dato obligatorio, porque determina la normativa panameña específica que se debe citar.
+
+${selected.length ? `**Ya configurado (se aplicará al prompt):**\n${selected.join('\n')}\n\n` : ''}**Aún falta:**
+- [ ] Tipo de instalación / sector ← obligatorio
+
+**Cuando lo selecciones, el prompt incluirá automáticamente:**
+- Rol experto y contexto del sector.
+- Marco normativo panameño + estándares internacionales.
+- Riesgos, fases, anexos y condicionantes seleccionados.
+- El **loop de verificación y corrección** embebido (redactar → auditar → corregir) — solo si activas al menos un ciclo.
+
+**Valores por defecto mientras no los cambies:**
+- Motor: Genérico (Markdown universal) · Formato: Documento de texto
+- Idioma: Español · Detalle: Estándar (~3.500 palabras) · Tono: Técnico-normativo
+
+---
+**Versión:** 1.0 · Optimizador de Prompt para Planes de Emergencia`;
+}
+
+function buildPrompt(){
+  if(!isConfigured()) return buildPlaceholder();
+  const engineId = effectiveEngineId();
+  const e = ENGINES[engineId];
+  const body = renderSections(e.style);
+  return engineHeader(engineId) + '\n' + body + engineFooter(engineId);
+}
+
+/* =========================================================
+   7. SALIDAS AUXILIARES
+   ========================================================= */
+
+function configObject(){
+  if(!isConfigured()){
+    return {
+      status:'incomplete',
+      message:'Falta seleccionar el tipo de instalación / sector (único dato obligatorio).',
+      missing:['tipoInstalacion'],
+      defaults:{
+        motorIA: ENGINES[effectiveEngineId()].name,
+        formatoSalida: FORMATS.find(f=>f.id===effectiveFormatId()).name,
+        idioma: effectiveLanguage(),
+        nivelDetalle: effectiveDetail(),
+        tono: effectiveTone()
+      },
+      generador:'Optimizador de Prompt para Planes de Emergencia',
+      version:'1.0'
+    };
+  }
+  const f = NORMATIVA_PANAMA[state.facility];
+  const engineId = effectiveEngineId();
+  const fmtId = effectiveFormatId();
+  return {
+    meta:{
+      generador:'Optimizador de Prompt para Planes de Emergencia',
+      version:'1.0',
+      generado: new Date().toISOString().slice(0,10),
+      pais:'Panamá'
+    },
+    motorIA: ENGINES[engineId].name + (state.engine ? '' : ' (por defecto)'),
+    tipoInstalacion: f.label,
+    formatoSalida: FORMATS.find(x=>x.id===fmtId).name + (state.format ? '' : ' (por defecto)'),
+    idioma: effectiveLanguage() + (state.language ? '' : ' (por defecto)'),
+    nivelDetalle: effectiveDetail() + (state.detail ? '' : ' (por defecto)'),
+    tono: effectiveTone() + (state.tone ? '' : ' (por defecto)'),
+    datosOperativos:{
+      ocupantes: state.occupants,
+      superficieM2: state.area,
+      turnos: state.shifts,
+      condicionantes: [...state.flags]
+    },
+    riesgos: RISKS.filter(r=>state.risks.has(r[0])).map(r=>r[1].replace(/^\S+\s/,'')),
+    fases: PHASES.filter(p=>state.phases.has(p[0])).map(p=>p[1]),
+    anexos: EXTRAS.filter(x=>state.extras.has(x[0])).map(x=>x[1]),
+    marcoNormativoPanama: f.norms,
+    estandaresInternacionales: NORMATIVA_INTERNACIONAL,
+    loopVerificacion:{
+      embebidoEnPrompt: true,
+      ciclosActivos: Object.keys(LOOP_DEFS).filter(k=>state.loopEnabled[k]),
+      profundidad: state.loopDepth,
+      modo: state.loopMode,
+      iteraciones: state.loopIterations,
+      tablaTrazabilidad: state.loopTraceability,
+      recomendacionesMejora: state.loopRecommendations
+    },
+    prompt: buildPrompt()
+  };
+}
+
+function guideHTML(){
+  if(!isConfigured()){
+    return `
+      <h3>👋 Bienvenido</h3>
+      <div class="tip">Selecciona el <b>tipo de instalación / sector</b> en el panel izquierdo para que el prompt se genere. Es el único dato obligatorio. Todos los demás parámetros son opcionales y aplican valores por defecto sensatos.</div>
+
+      <h3>¿Qué hace esta app?</h3>
+      <ul>
+        <li>Genera <b>un solo prompt</b> que pide al motor de IA: (1) redactar el plan de emergencia, y (2) ejecutar un loop de verificación y corrección antes de entregarlo (si activas al menos un ciclo).</li>
+        <li>Integra la <b>normativa panameña</b> y la <b>normativa internacional</b> aplicable, actualizada a 2025-2026.</li>
+        <li>Incluye <b>7 tipos de instalación</b> (incluido plan familiar y Propiedad Horizontal) y <b>3 formatos de salida</b>.</li>
+        <li>Compatible con <b>9 motores de IA</b>.</li>
+      </ul>
+
+      <h3>Propiedad Horizontal (PH)</h3>
+      <div class="tip">El sector PH se refiere al <b>Régimen de Propiedad Horizontal</b> regulado por la <b>Ley 284 de 2022</b> (vigente, con propuesta de modificación en trámite — Anteproyecto 112, 2026 — y actualización anunciada por el Miviot). El prompt generado incluye la obligación de la Junta Directiva de elaborar y actualizar anualmente el plan, la coordinación con el Benemérito Cuerpo de Bomberos (NFPA 101:2024), los simulacros semestrales recomendados y el uso del Fondo para Imprevistos como fondo de emergencia.</div>
+
+      <div class="tip">El botón <b>↺ Reset</b> deselecciona todas las variables y desactiva todos los ciclos del loop, dejando la app en estado completamente limpio.</div>
+      <p style="margin-top:14px;color:var(--muted);font-size:11px">Versión 1.0 · Optimizador de Prompt para Planes de Emergencia</p>
+    `;
+  }
+
+  const engineId = effectiveEngineId();
+  const fmtId = effectiveFormatId();
+  const e = ENGINES[engineId];
+  const f = NORMATIVA_PANAMA[state.facility];
+  const tips = {
+    generico:'Instrucciones universales. Compatible con cualquier motor de IA moderno.',
+    chatgpt:'Markdown con encabezados y tablas. Para o3/o4-mini, pide razonamiento interno y salida final ya corregida.',
+    claude:'XML para máximo apego. El recordatorio final ya incluye "ejecutar el loop antes de entregar".',
+    gemini:'Contextos largos (1M). El loop embebido cabe sin problema; pide "no resumas".',
+    copilot:'Divide en dos mensajes si el prompt es muy largo: (1) generación; (2) loop.',
+    perplexity:'Úsalo para validar la vigencia de la normativa panameña y conseguir fuentes oficiales.',
+    deepseek:'Excelente en matrices de riesgo y cálculos de capacidad. Ideal para el loop de consistencia numérica.',
+    mistral:'Prioriza los apartados críticos si el contexto es limitado; mantén el loop si al menos hay 1 ciclo activo.',
+    llama:'Define rol y formato explícitos. Repite el loop al final.'
+  };
+  const enabledLoops = Object.keys(LOOP_DEFS).filter(k=>state.loopEnabled[k]);
+  const defaultMark = (v, def) => v ? '' : ` <span style="color:var(--muted);font-size:10px">(def. ${def})</span>`;
+  return `
+    <h3>${e.icon} ${e.name} · ${e.tag}</h3>
+    <div class="tip">${tips[engineId]}</div>
+
+    <h3>Marco normativo panameño (${f.label})</h3>
+    <div class="norm-block">
+      <strong>Normativa nacional:</strong>
+      <ul>
+        ${f.norms.map(n=>`<li><code>${n}</code></li>`).join('')}
+      </ul>
+    </div>
+
+    <h3>Estándares internacionales integrados (actualizados 2025-2026)</h3>
+    <div class="norm-block">
+      <ul>
+        ${NORMATIVA_INTERNACIONAL.map(n=>`<li>${n}</li>`).join('')}
+      </ul>
+    </div>
+
+    <h3>Loop de verificación embebido (${enabledLoops.length}/6 ciclos activos)</h3>
+    <ul>
+      ${enabledLoops.length
+        ? enabledLoops.map(k=>`<li><b>Loop ${LOOP_DEFS[k].num}</b> — ${LOOP_DEFS[k].title}: ${LOOP_DEFS[k].desc}</li>`).join('')
+        : '<li><i>Ningún ciclo activo — actívalos en el panel izquierdo.</i></li>'}
+    </ul>
+    <p style="margin-top:6px;font-size:11.5px;color:var(--muted)">
+      Profundidad: <b>${state.loopDepth}</b> · Modo: <b>${state.loopMode}</b> · Iteraciones: <b>${state.loopIterations}</b>
+    </p>
+
+    <h3>Parámetros actuales</h3>
+    <ul>
+      <li>Instalación: <b>${f.label}</b></li>
+      <li>Motor: <b>${e.name}</b>${defaultMark(state.engine, 'Genérico')}</li>
+      <li>Formato: <b>${FORMATS.find(x=>x.id===fmtId).name}</b>${defaultMark(state.format, 'texto')}</li>
+      <li>Idioma: <b>${effectiveLanguage()}</b>${defaultMark(state.language, 'español')}</li>
+      <li>Detalle: <b>${effectiveDetail()}</b>${defaultMark(state.detail, 'estándar')}</li>
+      <li>Tono: <b>${effectiveTone()}</b>${defaultMark(state.tone, 'técnico-normativo')}</li>
+      <li>Ocupantes: <b>${fmtNum(state.occupants)}</b> · Superficie: <b>${fmtNum(state.area)} m²</b> · Turnos: <b>${state.shifts}</b></li>
+      <li>Riesgos: <b>${state.risks.size}</b> · Fases: <b>${state.phases.size}</b> · Anexos: <b>${state.extras.size}</b> · Condicionantes: <b>${state.flags.size}</b></li>
+      <li>Loops activos: <b>${enabledLoops.length}/6</b> · Modo: <b>${state.loopMode}</b></li>
+    </ul>
+
+    <h3>Buenas prácticas</h3>
+    <ul>
+      <li>Ejecuta primero con <code>Detalle ejecutivo</code> y escala a <code>Exhaustivo</code>.</li>
+      <li>Si el motor corta la respuesta, responde: <code>continúa desde el apartado N sin repetir lo anterior</code>.</li>
+      <li>Verifica la vigencia de la normativa en la <b>Gaceta Oficial de Panamá</b> o en SINAPROC / MEDUCA / MITRADEL / Bomberos.</li>
+    </ul>
+
+    <p style="margin-top:14px;color:var(--muted);font-size:11px">Versión 1.0 · Optimizador de Prompt para Planes de Emergencia</p>
+  `;
+}
+
+/* =========================================================
+   8. RENDER PRINCIPAL
+   ========================================================= */
+let activeTab = 'prompt';
+
+function setTabVisibility(tab){
+  const ids = {prompt:'#outPrompt', json:'#outJson', guide:'#outGuide'};
+  Object.entries(ids).forEach(([key, sel]) => {
+    const el = $(sel);
+    if(!el) return;
+    if(key === tab){
+      el.classList.remove('hidden');
+      el.style.display = '';
+    } else {
+      el.classList.add('hidden');
+      el.style.display = 'none';
+    }
+  });
+}
+
+function render(){
+  const prompt = buildPrompt();
+  $('#outPrompt').textContent = prompt;
+  $('#outJson').textContent = JSON.stringify(configObject(), null, 2);
+  $('#outGuide').innerHTML = guideHTML();
+
+  $('#statChars').textContent = prompt.length.toLocaleString('es-MX');
+  $('#statTokens').textContent = Math.round(prompt.length/4).toLocaleString('es-MX');
+  $('#statSections').textContent = isConfigured() ? buildSections().length : 0;
+
+  document.querySelectorAll('input[type=range]').forEach(r=>{
+    const p = ((r.value - r.min)/(r.max - r.min))*100;
+    r.style.setProperty('--p', p+'%');
+  });
+
+  setTabVisibility(activeTab);
+}
+
+/* =========================================================
+   9. EVENTOS
+   ========================================================= */
+function toast(msg){
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._tid);
+  t._tid = setTimeout(()=>t.classList.remove('show'), 1900);
+}
+
+function bind(){
+  document.querySelectorAll('[data-engine]').forEach(b=>{
+    b.onclick = ()=>{
+      if(state.engine === b.dataset.engine){
+        state.engine = null;
+      } else {
+        state.engine = b.dataset.engine;
+      }
+      document.querySelectorAll('[data-engine]').forEach(x=>x.classList.toggle('active', x.dataset.engine===state.engine));
+      render();
+    };
+  });
+
+  document.querySelectorAll('[data-fac]').forEach(b=>{
+    b.onclick = ()=>{
+      if(state.facility === b.dataset.fac){
+        state.facility = null;
+        state.risks = new Set();
+      } else {
+        state.facility = b.dataset.fac;
+        state.risks = new Set(NORMATIVA_PANAMA[state.facility].defaultRisks);
+      }
+      document.querySelectorAll('[data-fac]').forEach(x=>x.classList.toggle('active', x.dataset.fac===state.facility));
+      document.querySelectorAll('[data-risk]').forEach(x=>x.classList.toggle('on', state.risks.has(x.dataset.risk)));
+      render();
+    };
+  });
+
+  document.querySelectorAll('[data-format]').forEach(b=>{
+    b.onclick = ()=>{
+      if(state.format === b.dataset.format){
+        state.format = null;
+      } else {
+        state.format = b.dataset.format;
+      }
+      document.querySelectorAll('[data-format]').forEach(x=>x.classList.toggle('on', x.dataset.format===state.format));
+      render();
+    };
+  });
+
+  document.querySelectorAll('[data-risk]').forEach(b=>{
+    b.onclick = ()=>{
+      const k = b.dataset.risk;
+      state.risks.has(k) ? state.risks.delete(k) : state.risks.add(k);
+      b.classList.toggle('on');
+      render();
+    };
+  });
+  document.querySelectorAll('[data-phase]').forEach(b=>{
+    b.onclick = ()=>{
+      const k = b.dataset.phase;
+      state.phases.has(k) ? state.phases.delete(k) : state.phases.add(k);
+      b.classList.toggle('on');
+      render();
+    };
+  });
+  document.querySelectorAll('[data-extra]').forEach(b=>{
+    b.onclick = ()=>{
+      const k = b.dataset.extra;
+      state.extras.has(k) ? state.extras.delete(k) : state.extras.add(k);
+      b.classList.toggle('on');
+      render();
+    };
+  });
+
+  document.querySelectorAll('[data-flag]').forEach(b=>{
+    b.onclick = ()=>{
+      const k = b.dataset.flag;
+      state.flags.has(k) ? state.flags.delete(k) : state.flags.add(k);
+      b.classList.toggle('on');
+      render();
+    };
+  });
+
+  document.querySelectorAll('[data-loop]').forEach(b=>{
+    b.onclick = ()=>{
+      const k = b.dataset.loop;
+      state.loopEnabled[k] = !state.loopEnabled[k];
+      b.classList.toggle('on', state.loopEnabled[k]);
+      render();
+    };
+  });
+
+  const toggleAll = $('#loopToggleAll');
+  if(toggleAll){
+    toggleAll.onclick = ()=>{
+      const allOn = Object.keys(LOOP_DEFS).every(k=>state.loopEnabled[k]);
+      Object.keys(LOOP_DEFS).forEach(k => state.loopEnabled[k] = !allOn);
+      document.querySelectorAll('[data-loop]').forEach(b=>b.classList.toggle('on', state.loopEnabled[b.dataset.loop]));
+      render();
+    };
+  }
+
+  $('#loopDepth').onchange = e => { state.loopDepth = e.target.value; render(); };
+  $('#loopMode').onchange = e => { state.loopMode = e.target.value; render(); };
+  $('#loopIterations').onchange = e => { state.loopIterations = +e.target.value; render(); };
+
+  document.querySelectorAll('[data-loop-opt]').forEach(b=>{
+    b.onclick = ()=>{
+      const k = b.dataset.loopOpt;
+      state[k] = !state[k];
+      b.classList.toggle('on', state[k]);
+      render();
+    };
+  });
+
+  $('#selLang').onchange    = e => { state.language = e.target.value || null; render(); };
+  $('#selDetail').onchange  = e => { state.detail = e.target.value || null; render(); };
+  $('#selTone').onchange    = e => { state.tone = e.target.value || null; render(); };
+
+  $('#rOcc').oninput = e => { state.occupants = +e.target.value; $('#vOcc').textContent = fmtNum(state.occupants); render(); };
+  $('#rArea').oninput = e => { state.area = +e.target.value; $('#vArea').textContent = fmtNum(state.area); render(); };
+  $('#rShift').oninput = e => { state.shifts = +e.target.value; $('#vShift').textContent = state.shifts; render(); };
+
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.onclick = ()=>{
+      activeTab = t.dataset.tab;
+      document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x===t));
+      setTabVisibility(activeTab);
+    };
+  });
+
+  $('#btnCopy').onclick = async ()=>{
+    let txt;
+    if(activeTab==='json') txt = $('#outJson').textContent;
+    else if(activeTab==='guide') txt = $('#outGuide').innerText;
+    else txt = $('#outPrompt').textContent;
+    try{
+      await navigator.clipboard.writeText(txt);
+      toast('✓ Copiado al portapapeles');
+    }catch{
+      const ta = document.createElement('textarea');
+      ta.value = txt; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+      toast('✓ Copiado');
+    }
+  };
+
+  $('#btnTxt').onclick = ()=> download(`prompt-plan-emergencia-panama-${state.facility || 'sin-sector'}.txt`, buildPrompt(), 'text/plain;charset=utf-8');
+  $('#btnMd').onclick  = ()=> download(`prompt-plan-emergencia-panama-${state.facility || 'sin-sector'}.md`, buildPrompt(), 'text/markdown;charset=utf-8');
+  $('#btnJson').onclick= ()=> download(`plan-emergencia-panama-${state.facility || 'sin-sector'}.json`, JSON.stringify(configObject(), null, 2), 'application/json;charset=utf-8');
+
+  $('#btnReset').onclick = ()=>{
+    state.engine = null;
+    state.facility = null;
+    state.format = null;
+    state.language = null;
+    state.detail = null;
+    state.tone = null;
+    state.occupants = 1;
+    state.area = 50;
+    state.shifts = 1;
+    state.flags = new Set();
+    state.risks = new Set();
+    state.phases = new Set();
+    state.extras = new Set();
+    // Reset: TODO el loop desactivado
+    state.loopEnabled = {
+      completitud:false,
+      normativaPan:false,
+      estandaresIntl:false,
+      consistencia:false,
+      procedimientos:false,
+      auditoria:false
+    };
+    state.loopDepth = 'estandar';
+    state.loopMode = 'auto-corregir-reportar';
+    state.loopIterations = 1;
+    state.loopTraceability = false;
+    state.loopRecommendations = false;
+
+    buildControls(); bind(); syncAll(); render();
+    toast('↺ Configuración restablecida — todo desactivado');
+  };
+}
+
+function syncAll(){
+  $('#rOcc').value = state.occupants; $('#vOcc').textContent = fmtNum(state.occupants);
+  $('#rArea').value = state.area;     $('#vArea').textContent = fmtNum(state.area);
+  $('#rShift').value = state.shifts;  $('#vShift').textContent = state.shifts;
+  $('#selLang').value = state.language || '';
+  $('#selDetail').value = state.detail || '';
+  $('#selTone').value = state.tone || '';
+  document.querySelectorAll('[data-flag]').forEach(b=>b.classList.toggle('on', state.flags.has(b.dataset.flag)));
+  document.querySelectorAll('[data-engine]').forEach(b=>b.classList.toggle('active', b.dataset.engine===state.engine));
+  document.querySelectorAll('[data-fac]').forEach(b=>b.classList.toggle('active', b.dataset.fac===state.facility));
+  document.querySelectorAll('[data-format]').forEach(b=>b.classList.toggle('on', b.dataset.format===state.format));
+  document.querySelectorAll('[data-risk]').forEach(b=>b.classList.toggle('on', state.risks.has(b.dataset.risk)));
+  document.querySelectorAll('[data-phase]').forEach(b=>b.classList.toggle('on', state.phases.has(b.dataset.phase)));
+  document.querySelectorAll('[data-extra]').forEach(b=>b.classList.toggle('on', state.extras.has(b.dataset.extra)));
+  $('#loopDepth').value = state.loopDepth;
+  $('#loopMode').value = state.loopMode;
+  $('#loopIterations').value = state.loopIterations;
+  document.querySelectorAll('[data-loop-opt]').forEach(b=>b.classList.toggle('on', !!state[b.dataset.loopOpt]));
+  document.querySelectorAll('[data-loop]').forEach(b=>b.classList.toggle('on', state.loopEnabled[b.dataset.loop]));
+}
+
+function download(filename, text, mime){
+  const blob = new Blob([text], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  toast('⬇️ Descargado: ' + filename);
+}
+
+/* =========================================================
+   10. INIT
+   ========================================================= */
+buildControls();
+bind();
+syncAll();
+render();
+</script>
+</body>
+</html>
